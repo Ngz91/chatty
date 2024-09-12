@@ -1,7 +1,6 @@
 package main
 
 import (
-	"chatty/util"
 	"context"
 	"fmt"
 	"log"
@@ -25,19 +24,16 @@ func NewServer(config *Config) *Server {
 	}
 }
 
-func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, broker *util.Broker[string], cArray *[]net.Conn) {
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, bCh chan string, cArray *[]net.Conn) {
 	defer conn.Close()
 
-	msgCh := broker.Subscribe()
 	ip := conn.RemoteAddr().String()
 
 	for {
 		select {
 		case <-ctx.Done():
-			broker.Unsubscribe(msgCh)
 			return
-		case newMsg := <-msgCh:
-			log.Println(newMsg)
+		case newMsg := <-bCh:
 			for _, c := range *cArray {
 				if c != conn {
 					log.Printf("Sending from %s to %s: %s", ip, c.RemoteAddr(), newMsg)
@@ -55,7 +51,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 
 			log.Printf("Client %s: %s", ip, msg)
 			if msg != "quit" {
-				broker.Publish(msg)
+				bCh <- msg
 			}
 
 			conn.Write([]byte(msg))
@@ -73,15 +69,11 @@ func (s *Server) run() {
 	}
 	log.Printf("Listening on address %s", l.Addr())
 
+	b := make(chan string, 2) // Used as broadcast channel
+
 	defer func() {
 		l.Close()
 		cancel()
-	}()
-
-	b := util.NewBroker[string]() // Used as broadcast channel
-	go b.Start()
-	defer func() {
-		b.Stop()
 	}()
 
 	// TODO Create map of connections and map them to rooms
