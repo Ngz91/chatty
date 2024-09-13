@@ -13,7 +13,6 @@ import (
 func checkNewMsg(conn net.Conn, buf []byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	// TODO Check if the message is not from the same user (Probably create a is the server a struct to hold the info necessary like a uuid, channel etc)
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {

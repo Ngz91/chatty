@@ -53,8 +53,6 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 			if msg != "quit" {
 				bCh <- msg
 			}
-
-			conn.Write([]byte(msg))
 		}
 	}
 }
