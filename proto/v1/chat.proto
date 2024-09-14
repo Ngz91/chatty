@@ -3,9 +3,9 @@ package chatty;
 option go_package = "chatty/proto/v1/chat";
 
 message Message {
-  string ip = 2;
-  string port = 3;
-  string content = 4;
+  string ip = 1;
+  string port = 2;
+  string content = 3;
 }
 
 message Messages {

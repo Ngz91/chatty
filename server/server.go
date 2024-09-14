@@ -1,10 +1,13 @@
 package main
 
 import (
+	chat "chatty/proto/v1"
 	"context"
 	"fmt"
 	"log"
 	"net"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type Server struct {
@@ -24,7 +27,7 @@ func NewServer(config *Config) *Server {
 	}
 }
 
-func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, bCh chan string, cArray *[]net.Conn) {
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, bCh chan []byte, cArray *[]net.Conn) {
 	defer conn.Close()
 
 	ip := conn.RemoteAddr().String()
@@ -36,7 +39,6 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 		case newMsg := <-bCh:
 			for _, c := range *cArray {
 				if c != conn {
-					log.Printf("Sending from %s to %s: %s", ip, c.RemoteAddr(), newMsg)
 					c.Write([]byte(newMsg))
 				}
 			}
@@ -47,11 +49,21 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 				conn.Close()
 				return
 			}
-			msg := string(buf[:n])
 
-			log.Printf("Client %s: %s", ip, msg)
-			if msg != "quit" {
-				bCh <- msg
+			newMsg := &chat.Message{}
+			err = proto.Unmarshal(buf[:n], newMsg)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			log.Printf("Client %s: %s", ip, newMsg.Content)
+			if newMsg.Content != "quit" {
+				m, err := proto.Marshal(newMsg)
+				if err != nil {
+					log.Fatal(err)
+				}
+				bCh <- m
 			}
 		}
 	}
@@ -67,7 +79,7 @@ func (s *Server) run() {
 	}
 	log.Printf("Listening on address %s", l.Addr())
 
-	b := make(chan string, 2) // Used as broadcast channel
+	b := make(chan []byte, 2) // Used as broadcast channel
 
 	defer func() {
 		l.Close()

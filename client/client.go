@@ -2,12 +2,15 @@ package main
 
 import (
 	"bufio"
+	chat "chatty/proto/v1"
 	"io"
 	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
+
+	"google.golang.org/protobuf/proto"
 )
 
 func checkNewMsg(conn net.Conn, buf []byte, wg *sync.WaitGroup) {
@@ -22,7 +25,9 @@ func checkNewMsg(conn net.Conn, buf []byte, wg *sync.WaitGroup) {
 			}
 			return
 		}
-		log.Printf("Received from server: %s", string(buf[:n]))
+		m := &chat.Message{}
+		err = proto.Unmarshal(buf[:n], m)
+		log.Printf("Client %s in port %s says: %s", m.GetIp(), m.GetPort(), m.GetContent())
 	}
 }
 
@@ -32,6 +37,10 @@ func main() {
 		log.Fatal(err)
 	}
 	buf := make([]byte, 1024)
+	ipPort := strings.Split(conn.LocalAddr().String(), ":")
+	ip := ipPort[0]
+	port := ipPort[1]
+
 	reader := bufio.NewReader(os.Stdin)
 
 	var wg sync.WaitGroup
@@ -47,7 +56,18 @@ func main() {
 		}
 		msg = strings.TrimSpace(msg)
 
-		conn.Write([]byte(msg))
+		msgInfo := chat.Message{
+			Ip:      ip,
+			Port:    port,
+			Content: msg,
+		}
+
+		protoMsg, err := proto.Marshal(&msgInfo)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		conn.Write(protoMsg)
 
 		if msg == "quit" {
 			conn.Close()
