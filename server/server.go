@@ -1,7 +1,7 @@
 package main
 
 import (
-	chat "chatty/proto/v1"
+	"chatty/utils"
 	"context"
 	"fmt"
 	"log"
@@ -49,10 +49,9 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 				conn.Close()
 				return
 			}
+			data := buf[:n]
 
-			newMsg := &chat.Message{}
-			err = proto.Unmarshal(buf[:n], newMsg)
-
+			newMsg, err := utils.UnmarshalMsg(data)
 			if err != nil {
 				log.Fatal(err)
 			}
