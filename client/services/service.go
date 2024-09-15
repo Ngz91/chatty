@@ -7,8 +7,32 @@ import (
 	"net"
 	"sync"
 
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )
+
+func NewUser(conn net.Conn) *chat.User {
+	u := &chat.User{
+		Id: uuid.NewString(),
+	}
+	return u
+}
+
+func NewServerMessage(ip string, port string, user *chat.User, msg string) ([]byte, error) {
+	sMsg := &chat.ServerMessage{
+		Ip:      ip,
+		Port:    port,
+		User:    user,
+		Content: msg,
+	}
+
+	protoMsg, err := proto.Marshal(sMsg)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return protoMsg, nil
+}
 
 func CheckNewMsg(conn net.Conn, buf []byte, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -23,8 +47,8 @@ func CheckNewMsg(conn net.Conn, buf []byte, wg *sync.WaitGroup) {
 			return
 		}
 		data := buf[:n]
-		m := &chat.Message{}
+		m := &chat.ClientMessage{}
 		err = proto.Unmarshal(data, m)
-		log.Printf("Client %s in port %s says: %s", m.GetIp(), m.GetPort(), m.GetContent())
+		log.Printf("Client %s says: %s", m.GetUser().GetId(), m.GetContent())
 	}
 }

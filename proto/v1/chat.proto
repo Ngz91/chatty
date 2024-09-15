@@ -2,10 +2,21 @@ syntax = "proto3";
 package chatty;
 option go_package = "chatty/proto/v1/chat";
 
-message Message {
+message User {
+  string id = 1;
+  // string username = 2; Not dealing with user defined names for now
+}
+
+message ClientMessage {
+  User user = 1;
+  string content = 2;
+}
+
+message ServerMessage {
   string ip = 1;
   string port = 2;
-  string content = 3;
+  User user = 3;
+  string content = 4;
 }
 
 message Messages {

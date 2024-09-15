@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"chatty/client/services"
-	"chatty/utils"
 	"log"
 	"net"
 	"os"
@@ -19,6 +18,8 @@ func main() {
 	buf := make([]byte, 1024)
 
 	cIp := conn.LocalAddr().String()
+
+	user := services.NewUser(conn)
 
 	ipPort := strings.Split(cIp, ":")
 	ip := ipPort[0]
@@ -39,7 +40,7 @@ func main() {
 		}
 		msg = strings.TrimSpace(msg)
 
-		protoMsg, err := utils.MarshalNewMsg(ip, port, msg)
+		protoMsg, err := services.NewServerMessage(ip, port, user, msg)
 		if err != nil {
 			log.Fatal(err)
 		}
