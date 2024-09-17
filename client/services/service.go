@@ -11,9 +11,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func NewUser(conn net.Conn) *chat.User {
+func NewUser(conn net.Conn, username string) *chat.User {
 	u := &chat.User{
-		Id: uuid.NewString(),
+		Id:       uuid.NewString(),
+		Username: username,
 	}
 	return u
 }
@@ -49,6 +50,11 @@ func CheckNewMsg(conn net.Conn, buf []byte, wg *sync.WaitGroup) {
 		data := buf[:n]
 		m := &chat.ClientMessage{}
 		err = proto.Unmarshal(data, m)
-		log.Printf("Client %s says: %s", m.GetUser().GetId(), m.GetContent())
+
+		u := m.GetUser().GetUsername()
+		if u == "" {
+			u = m.GetUser().GetId()
+		}
+		log.Printf("Client %s says: %s", u, m.GetContent())
 	}
 }

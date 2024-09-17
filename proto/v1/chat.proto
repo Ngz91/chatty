@@ -4,7 +4,7 @@ option go_package = "chatty/proto/v1/chat";
 
 message User {
   string id = 1;
-  // string username = 2; Not dealing with user defined names for now
+  string username = 2;
 }
 
 message ClientMessage {
@@ -19,6 +19,3 @@ message ServerMessage {
   string content = 4;
 }
 
-message Messages {
-  repeated Message messages = 1;
-}
