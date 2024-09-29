@@ -7,6 +7,12 @@ message User {
   string username = 2;
 }
 
+message RoomMsg {
+  string name = 1;
+  bool create = 2;
+  User user = 3;
+}
+
 message ClientMessage {
   User user = 1;
   string content = 2;
@@ -19,3 +25,6 @@ message ServerMessage {
   string content = 4;
 }
 
+message Operation {
+  bool success = 1;
+}
