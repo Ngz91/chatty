@@ -20,11 +20,6 @@ type Config struct {
 	Port string
 }
 
-type Room struct {
-	Id    string
-	Users []net.Conn // Array of connections in the room (use of a map would be more optimal)
-}
-
 func NewServer(config *Config) *Server {
 	return &Server{
 		host: config.Host,
@@ -34,7 +29,8 @@ func NewServer(config *Config) *Server {
 
 func newRoom(id string) *Room {
 	return &Room{
-		Id: id,
+		Id:    id,
+		Users: make([]net.Conn, 0),
 	}
 }
 
@@ -65,11 +61,14 @@ func (s *Server) Run() {
 			c.Close()
 		}
 
-		go s.handleConnection(ctx, c, buf, b, rMap)
+		rName := s.createJoinRoom(c, buf, rMap)
+
+		go s.handleConnection(ctx, c, buf, b, rMap, rName)
 	}
 }
 
 func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room) string {
+	// TODO instead of using this logic maybe use Room methods to handle the creation/join/delete/get etc. logic
 	n, err := conn.Read(buf)
 	if err != nil {
 		log.Printf("Client %s closed connection", conn.RemoteAddr().String())
@@ -83,12 +82,10 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 
 	var oStatus []byte // Used to inform the client of the creation/join of a room
 
-	r := roomMsg.Name
-
 	if roomMsg.GetCreate() == true {
 		log.Printf("Creating new room: %s", roomMsg.GetName())
 		room := *newRoom(roomMsg.GetName())
-		room.Users = append(room.Users, conn) // add user to room
+		room.Users = append(room.Users, conn) // Add user to room
 		rMap[roomMsg.GetName()] = room
 		oStatus, err = marshalStatusMsg(true)
 		if err != nil {
@@ -105,7 +102,7 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 		} else {
 			log.Printf("Joining %s to room %s", roomMsg.GetUser().GetId(), roomMsg.GetName())
 			r.Users = append(r.Users, conn)
-			log.Println(r.Users)
+			rMap[roomMsg.Name] = r // Update Room
 			oStatus, err = marshalStatusMsg(true)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when joining an existing room")
@@ -113,22 +110,19 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 			conn.Write(oStatus)
 		}
 	}
-	return r
+	return roomMsg.Name
 }
 
-func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, bCh chan []byte, rMap map[string]Room) {
+func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, bCh chan []byte, rMap map[string]Room, rName string) {
 	defer conn.Close()
 
 	ip := conn.RemoteAddr().String()
-
-	rName := s.createJoinRoom(conn, buf, rMap)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case newMsg := <-bCh:
-			log.Println(rMap)
 			for _, c := range rMap[rName].Users {
 				if c != conn {
 					c.Write([]byte(newMsg))
