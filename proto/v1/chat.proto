@@ -26,5 +26,5 @@ message ServerMessage {
 }
 
 message Operation {
-  bool success = 1;
+  uint32 success = 1; // 1 = true, false = 2
 }

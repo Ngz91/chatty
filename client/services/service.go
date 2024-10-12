@@ -62,16 +62,20 @@ func CheckNewMsg(conn net.Conn, buf []byte, wg *sync.WaitGroup) {
 func CheckStatus(conn net.Conn, buf []byte) bool {
 	n, err := conn.Read(buf)
 	if err != nil {
-		if err != io.EOF {
+		if err == io.EOF {
 			log.Fatal("Connection closed")
 		}
-		log.Fatal("Unexpected error")
+		log.Fatal(err)
 	}
 	data := buf[:n]
 	o := &chat.Operation{}
 	err = proto.Unmarshal(data, o)
 
-	if o.Success == true {
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if o.Success == 1 {
 		return true
 	}
 	return false

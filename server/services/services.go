@@ -3,6 +3,7 @@ package services
 import (
 	chat "chatty/proto/v1"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -61,13 +62,16 @@ func (s *Server) Run() {
 			c.Close()
 		}
 
-		rName := s.createJoinRoom(c, buf, rMap)
-
+		rName, err := s.createJoinRoom(c, buf, rMap)
+		if err != nil {
+			log.Printf("Error creating/joining room, closing connection from %s", c.RemoteAddr())
+			continue
+		}
 		go s.handleConnection(ctx, c, buf, b, rMap, rName)
 	}
 }
 
-func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room) string {
+func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room) (string, error) {
 	// TODO instead of using this logic maybe use Room methods to handle the creation/join/delete/get etc. logic
 	n, err := conn.Read(buf)
 	if err != nil {
@@ -80,37 +84,39 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 		log.Fatal(err)
 	}
 
-	var oStatus []byte // Used to inform the client of the creation/join of a room
+	// var oStatus []byte // Used to inform the client of the creation/join of a room
 
 	if roomMsg.GetCreate() == true {
 		log.Printf("Creating new room: %s", roomMsg.GetName())
 		room := *newRoom(roomMsg.GetName())
 		room.Users = append(room.Users, conn) // Add user to room
 		rMap[roomMsg.GetName()] = room
-		oStatus, err = marshalStatusMsg(true)
+		oStatus, err := marshalStatusMsg(1)
 		if err != nil {
 			log.Fatal("unexpected error encoding status message when creating a room")
 		}
 		conn.Write(oStatus)
 	} else {
 		if r, ok := rMap[roomMsg.GetName()]; !ok {
-			oStatus, err = marshalStatusMsg(false)
+			oStatus, err := marshalStatusMsg(2)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when creating a room with the same name")
 			}
 			conn.Write(oStatus)
+			errString := fmt.Sprintf("No room named {%s} exists.", roomMsg.Name)
+			return "", errors.New(errString)
 		} else {
 			log.Printf("Joining %s to room %s", roomMsg.GetUser().GetId(), roomMsg.GetName())
 			r.Users = append(r.Users, conn)
 			rMap[roomMsg.Name] = r // Update Room
-			oStatus, err = marshalStatusMsg(true)
+			oStatus, err := marshalStatusMsg(1)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when joining an existing room")
 			}
 			conn.Write(oStatus)
 		}
 	}
-	return roomMsg.Name
+	return roomMsg.Name, nil
 }
 
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, bCh chan []byte, rMap map[string]Room, rName string) {
@@ -178,7 +184,7 @@ func unmarshalRoomMsg(data []byte) (*chat.RoomMsg, error) {
 	return roomMsg, nil
 }
 
-func marshalStatusMsg(status bool) ([]byte, error) {
+func marshalStatusMsg(status uint32) ([]byte, error) {
 	opMsg := &chat.Operation{
 		Success: status,
 	}
