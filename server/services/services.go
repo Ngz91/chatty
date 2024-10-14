@@ -28,13 +28,6 @@ func NewServer(config *Config) *Server {
 	}
 }
 
-func newRoom(id string) *Room {
-	return &Room{
-		Id:    id,
-		Users: make([]net.Conn, 0),
-	}
-}
-
 func (s *Server) Run() {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -84,21 +77,21 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 		log.Fatal(err)
 	}
 
-	// var oStatus []byte // Used to inform the client of the creation/join of a room
+	var oStatus []byte // Used to inform the client of the creation/join of a room
 
 	if roomMsg.GetCreate() == true {
 		log.Printf("Creating new room: %s", roomMsg.GetName())
 		room := *newRoom(roomMsg.GetName())
 		room.Users = append(room.Users, conn) // Add user to room
 		rMap[roomMsg.GetName()] = room
-		oStatus, err := marshalStatusMsg(1)
+		oStatus, err = marshalStatusMsg(1)
 		if err != nil {
 			log.Fatal("unexpected error encoding status message when creating a room")
 		}
 		conn.Write(oStatus)
 	} else {
 		if r, ok := rMap[roomMsg.GetName()]; !ok {
-			oStatus, err := marshalStatusMsg(2)
+			oStatus, err = marshalStatusMsg(2)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when creating a room with the same name")
 			}
@@ -109,7 +102,7 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 			log.Printf("Joining %s to room %s", roomMsg.GetUser().GetId(), roomMsg.GetName())
 			r.Users = append(r.Users, conn)
 			rMap[roomMsg.Name] = r // Update Room
-			oStatus, err := marshalStatusMsg(1)
+			oStatus, err = marshalStatusMsg(1)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when joining an existing room")
 			}
@@ -129,7 +122,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 		case <-ctx.Done():
 			return
 		case newMsg := <-bCh:
-			for _, c := range rMap[rName].Users {
+			for _, c := range getUsers(rMap[rName]) {
 				if c != conn {
 					c.Write([]byte(newMsg))
 				}
@@ -139,6 +132,12 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 			if err != nil {
 				log.Printf("Client %s closed connection", conn.RemoteAddr().String())
 				conn.Close()
+				r := removeUser(rName, conn, rMap[rName])
+				rMap[rName] = r
+
+				deleteRoom(rName, rMap)
+
+				log.Println(rMap)
 				return
 			}
 			data := buf[:n]
