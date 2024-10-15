@@ -6,12 +6,9 @@ import (
 	chat "chatty/proto/v1"
 	"flag"
 	"log"
-	"net"
 	"os"
 	"strings"
 	"sync"
-
-	"google.golang.org/protobuf/proto"
 )
 
 var username string
@@ -44,15 +41,15 @@ func main() {
 		roomCreate = false
 	}
 
-	conn, err := net.Dial("tcp", "127.0.0.1:8080")
+	client := services.NewTcpClient()
+
+	err := client.Connect("127.0.0.1:8080")
 	if err != nil {
 		log.Fatal(err)
 	}
-	buf := make([]byte, 1500)
 
-	cIp := conn.LocalAddr().String()
-
-	user := services.NewUser(conn, username)
+	cIp := client.GetLocalAddr()
+	user := services.NewUser(username)
 
 	if user.GetUsername() == "" {
 		log.Printf("No username provided, using uuid %s", user.GetId())
@@ -65,22 +62,20 @@ func main() {
 	roomMsg := chat.RoomMsg{
 		Name:   room,
 		Create: roomCreate,
-		User:   user,
+		User:   user, // TODO create User interface
 	}
 
-	// Send a room request to the server
-	// The server handles the create/join room logic
-	rMsg, err := proto.Marshal(&roomMsg)
+	err = client.SendRoomRequest(&roomMsg)
 	if err != nil {
+		client.Disconnect()
 		log.Fatal(err)
 	}
-	conn.Write(rMsg)
 
 	// Confirm that the room was created or exists and the user was added
-	s := services.CheckStatus(conn, buf)
+	s := services.CheckStatus(client)
 	if s == false {
 		log.Fatal("Server could not create/join room")
-		conn.Close()
+		client.Disconnect()
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -89,7 +84,7 @@ func main() {
 	wg.Add(1)
 
 	log.Printf("Welcome %s to room %s", cIp, room)
-	go services.CheckNewMsg(conn, buf, &wg)
+	go services.CheckNewMsg(client, &wg)
 
 	for {
 		msg, err := reader.ReadString('\n')
@@ -103,10 +98,10 @@ func main() {
 			log.Fatal(err)
 		}
 
-		conn.Write(protoMsg)
+		client.Write(protoMsg)
 
 		if msg == "quit" {
-			conn.Close()
+			client.Disconnect()
 			break
 		}
 	}

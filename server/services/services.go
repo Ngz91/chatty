@@ -137,7 +137,6 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 
 				deleteRoom(rName, rMap)
 
-				log.Println(rMap)
 				return
 			}
 			data := buf[:n]
