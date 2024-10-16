@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"chatty/client/services"
-	chat "chatty/proto/v1"
 	"flag"
 	"log"
 	"os"
@@ -59,13 +58,9 @@ func main() {
 	ip := ipPort[0]
 	port := ipPort[1]
 
-	roomMsg := chat.RoomMsg{
-		Name:   room,
-		Create: roomCreate,
-		User:   user, // TODO create User interface
-	}
+	roomMsg := client.CreateRoomMsg(room, user, roomCreate)
 
-	err = client.SendRoomRequest(&roomMsg)
+	err = client.SendRoomRequest(roomMsg)
 	if err != nil {
 		client.Disconnect()
 		log.Fatal(err)

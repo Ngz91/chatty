@@ -10,15 +10,25 @@ import (
 type Client interface {
 	Connect(ip string) error
 	Disconnect()
-	SendRoomRequest(roomMsg *chat.RoomMsg) error
 	GetLocalAddr() string
 	Write(data []byte)
 	Read() ([]byte, error)
 }
 
+type TcpClienter interface {
+	Client
+	Messenger
+}
+
 type TcpClient struct {
 	conn net.Conn
 	buf  []byte
+}
+
+func NewTcpClient() TcpClienter {
+	return &TcpClient{
+		buf: make([]byte, 1500),
+	}
 }
 
 func (tc *TcpClient) Connect(ip string) error {
@@ -32,6 +42,15 @@ func (tc *TcpClient) Connect(ip string) error {
 
 func (tc *TcpClient) Disconnect() {
 	tc.conn.Close()
+}
+
+func (tc *TcpClient) CreateRoomMsg(room string, user *chat.User, roomCreate bool) *chat.RoomMsg {
+	roomMsg := chat.RoomMsg{
+		Name:   room,
+		Create: roomCreate,
+		User:   user, // TODO create User interface
+	}
+	return &roomMsg
 }
 
 func (tc *TcpClient) SendRoomRequest(roomMsg *chat.RoomMsg) error {
@@ -60,10 +79,4 @@ func (tc *TcpClient) Read() ([]byte, error) {
 	}
 	data := tc.buf[:n]
 	return data, nil
-}
-
-func NewTcpClient() Client {
-	return &TcpClient{
-		buf: make([]byte, 1500),
-	}
 }
