@@ -3,7 +3,9 @@ package main
 import (
 	"bufio"
 	"chatty/client/services"
+	"context"
 	"flag"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -40,8 +42,9 @@ func main() {
 		roomCreate = false
 	}
 
-	client := services.NewTcpClient()
+	ctx, cancel := context.WithCancel(context.Background())
 
+	client := services.NewTcpClient()
 	err := client.Connect("127.0.0.1:8080")
 	if err != nil {
 		log.Fatal(err)
@@ -78,13 +81,22 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
+	go services.CheckNewMsg(ctx, client, &wg)
+
+	defer func() {
+		cancel()
+		client.Disconnect()
+	}()
+
 	log.Printf("Welcome %s to room %s", cIp, room)
-	go services.CheckNewMsg(client, &wg)
 
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			log.Fatal(err)
+			if err != io.EOF {
+				log.Fatal(err)
+			}
+			log.Fatal("Forcefully closed conection")
 		}
 		msg = strings.TrimSpace(msg)
 
@@ -95,7 +107,8 @@ func main() {
 
 		client.Write(protoMsg)
 
-		if msg == "quit" {
+		if msg == "/quit" {
+			cancel()
 			client.Disconnect()
 			break
 		}

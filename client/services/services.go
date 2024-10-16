@@ -2,6 +2,7 @@ package services
 
 import (
 	chat "chatty/proto/v1"
+	"context"
 	"io"
 	"log"
 	"sync"
@@ -34,26 +35,31 @@ func NewServerMessage(ip string, port string, user *chat.User, msg string) ([]by
 	return protoMsg, nil
 }
 
-func CheckNewMsg(c Client, wg *sync.WaitGroup) {
+func CheckNewMsg(ctx context.Context, c Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
-		data, err := c.Read()
-		if err != nil {
-			if err != io.EOF {
-				log.Println("Connection closed")
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			data, err := c.Read()
+			if err != nil {
+				if err != io.EOF {
+					log.Println("Connection closed")
+					return
+				}
 				return
 			}
-			return
-		}
-		m := &chat.ClientMessage{}
-		err = proto.Unmarshal(data, m)
+			m := &chat.ClientMessage{}
+			err = proto.Unmarshal(data, m)
 
-		u := m.GetUser().GetUsername()
-		if u == "" {
-			u = m.GetUser().GetId()
+			u := m.GetUser().GetUsername()
+			if u == "" {
+				u = m.GetUser().GetId()
+			}
+			log.Printf("Client %s says: %s", u, m.GetContent())
 		}
-		log.Printf("Client %s says: %s", u, m.GetContent())
 	}
 }
 
