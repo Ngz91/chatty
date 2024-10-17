@@ -1,6 +1,7 @@
 package services
 
 import (
+	"chatty/common"
 	chat "chatty/proto/v1"
 	"context"
 	"errors"
@@ -65,14 +66,13 @@ func (s *Server) Run() {
 }
 
 func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room) (string, error) {
-	// TODO instead of using this logic maybe use Room methods to handle the creation/join/delete/get etc. logic
 	n, err := conn.Read(buf)
 	if err != nil {
 		log.Printf("Client %s closed connection", conn.RemoteAddr().String())
 		conn.Close()
 	}
 	data := buf[:n]
-	roomMsg, err := unmarshalRoomMsg(data)
+	roomMsg, err := common.UnmarshalRoomMsg(data)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -84,14 +84,14 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 		room := *newRoom(roomMsg.GetName())
 		room.Users = append(room.Users, conn) // Add user to room
 		rMap[roomMsg.GetName()] = room
-		oStatus, err = marshalStatusMsg(1)
+		oStatus, err = common.MarshalStatusMsg(1)
 		if err != nil {
 			log.Fatal("unexpected error encoding status message when creating a room")
 		}
 		conn.Write(oStatus)
 	} else {
 		if r, ok := rMap[roomMsg.GetName()]; !ok {
-			oStatus, err = marshalStatusMsg(2)
+			oStatus, err = common.MarshalStatusMsg(2)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when creating a room with the same name")
 			}
@@ -102,7 +102,7 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 			log.Printf("Joining %s to room %s", roomMsg.GetUser().GetId(), roomMsg.GetName())
 			r.Users = append(r.Users, conn)
 			rMap[roomMsg.Name] = r // Update Room
-			oStatus, err = marshalStatusMsg(1)
+			oStatus, err = common.MarshalStatusMsg(1)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when joining an existing room")
 			}
@@ -141,7 +141,7 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 			}
 			data := buf[:n]
 
-			newMsg, err := unmarshalMsg(data)
+			newMsg, err := common.UnmarshalMsg(data)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -160,35 +160,4 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 			}
 		}
 	}
-}
-
-func unmarshalMsg(data []byte) (*chat.ServerMessage, error) {
-	newMsg := &chat.ServerMessage{}
-	err := proto.Unmarshal(data, newMsg)
-
-	if err != nil {
-		return &chat.ServerMessage{}, err
-	}
-	return newMsg, nil
-}
-
-func unmarshalRoomMsg(data []byte) (*chat.RoomMsg, error) {
-	roomMsg := &chat.RoomMsg{}
-	err := proto.Unmarshal(data, roomMsg)
-
-	if err != nil {
-		return &chat.RoomMsg{}, err
-	}
-	return roomMsg, nil
-}
-
-func marshalStatusMsg(status uint32) ([]byte, error) {
-	opMsg := &chat.Operation{
-		Success: status,
-	}
-	o, err := proto.Marshal(opMsg)
-	if err != nil {
-		return []byte{}, err
-	}
-	return o, nil
 }

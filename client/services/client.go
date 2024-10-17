@@ -1,6 +1,7 @@
 package services
 
 import (
+	"chatty/common"
 	chat "chatty/proto/v1"
 	"net"
 
@@ -48,7 +49,7 @@ func (tc *TcpClient) CreateRoomMsg(room string, user *chat.User, roomCreate bool
 	roomMsg := chat.RoomMsg{
 		Name:   room,
 		Create: roomCreate,
-		User:   user, // TODO create User interface
+		User:   user,
 	}
 	return &roomMsg
 }
@@ -62,6 +63,14 @@ func (tc *TcpClient) SendRoomRequest(roomMsg *chat.RoomMsg) error {
 	}
 	tc.Write(rMsg)
 	return nil
+}
+
+func (tc *TcpClient) SendServerMsg(ip string, port string, user *chat.User, msg string) ([]byte, error) {
+	m, err := common.MarshalServerMessage(ip, port, user, msg)
+	if err != nil {
+		return []byte{}, err
+	}
+	return m, nil
 }
 
 func (tc *TcpClient) GetLocalAddr() string {

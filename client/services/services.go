@@ -19,22 +19,6 @@ func NewUser(username string) *chat.User {
 	return u
 }
 
-func NewServerMessage(ip string, port string, user *chat.User, msg string) ([]byte, error) {
-	sMsg := &chat.ServerMessage{
-		Ip:      ip,
-		Port:    port,
-		User:    user,
-		Content: msg,
-	}
-
-	protoMsg, err := proto.Marshal(sMsg)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return protoMsg, nil
-}
-
 func CheckNewMsg(ctx context.Context, c Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 

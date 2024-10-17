@@ -96,11 +96,11 @@ func main() {
 			if err != io.EOF {
 				log.Fatal(err)
 			}
-			log.Fatal("Forcefully closed conection")
+			log.Fatal("Forcefully exited the program")
 		}
 		msg = strings.TrimSpace(msg)
 
-		protoMsg, err := services.NewServerMessage(ip, port, user, msg)
+		protoMsg, err := client.SendServerMsg(ip, port, user, msg)
 		if err != nil {
 			log.Fatal(err)
 		}
