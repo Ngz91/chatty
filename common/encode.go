@@ -37,7 +37,7 @@ func MarshalStatusMsg(status uint32) ([]byte, error) {
 	return o, nil
 }
 
-func MarshalServerMessage(ip string, port string, user *chat.User, msg string) ([]byte, error) {
+func MarshalServerMsg(ip string, port string, user *chat.User, msg string) ([]byte, error) {
 	sMsg := &chat.ServerMessage{
 		Ip:      ip,
 		Port:    port,
@@ -51,4 +51,16 @@ func MarshalServerMessage(ip string, port string, user *chat.User, msg string) (
 	}
 
 	return protoMsg, nil
+}
+
+func MarshalClientMsg(msg *chat.ServerMessage) ([]byte, error) {
+	m := &chat.ClientMessage{
+		User:    msg.GetUser(),
+		Content: msg.GetContent(),
+	}
+	newMsgProto, err := proto.Marshal(m)
+	if err != nil {
+		return []byte{}, err
+	}
+	return newMsgProto, nil
 }

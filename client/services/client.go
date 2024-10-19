@@ -66,7 +66,7 @@ func (tc *TcpClient) SendRoomRequest(roomMsg *chat.RoomMsg) error {
 }
 
 func (tc *TcpClient) SendServerMsg(ip string, port string, user *chat.User, msg string) ([]byte, error) {
-	m, err := common.MarshalServerMessage(ip, port, user, msg)
+	m, err := common.MarshalServerMsg(ip, port, user, msg)
 	if err != nil {
 		return []byte{}, err
 	}

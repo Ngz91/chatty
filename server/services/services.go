@@ -2,14 +2,11 @@ package services
 
 import (
 	"chatty/common"
-	chat "chatty/proto/v1"
 	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net"
-
-	"google.golang.org/protobuf/proto"
 )
 
 type Server struct {
@@ -39,14 +36,13 @@ func (s *Server) Run() {
 	}
 	log.Printf("Listening on address %s", l.Addr())
 
-	b := make(chan []byte, 2) // Used as broadcast channel
+	b := make(chan []byte, 2)     // Used as broadcast channel
+	rMap := make(map[string]Room) // Map of rooms created (Room name -> Room struct)
 
 	defer func() {
 		l.Close()
 		cancel()
 	}()
-
-	rMap := make(map[string]Room) // Map of rooms created (Room name -> Room struct)
 
 	for {
 		c, err := l.Accept()
@@ -79,6 +75,7 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 
 	var oStatus []byte // Used to inform the client of the creation/join of a room
 
+	// TODO Rework the logic (maybe remove GetCreate from proto)
 	if roomMsg.GetCreate() == true {
 		log.Printf("Creating new room: %s", roomMsg.GetName())
 		room := *newRoom(roomMsg.GetName())
@@ -148,15 +145,11 @@ func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte
 
 			log.Printf("Client %s: %s", ip, newMsg.GetContent())
 			if newMsg.Content != "quit" {
-				m := &chat.ClientMessage{
-					User:    newMsg.GetUser(),
-					Content: newMsg.GetContent(),
-				}
-				newMsgProto, err := proto.Marshal(m)
+				m, err := common.MarshalClientMsg(newMsg)
 				if err != nil {
 					log.Fatal(err)
 				}
-				bCh <- newMsgProto
+				bCh <- m
 			}
 		}
 	}
