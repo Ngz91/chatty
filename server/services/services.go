@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 type Server struct {
@@ -42,6 +45,17 @@ func (s *Server) Run() {
 	defer func() {
 		l.Close()
 		cancel()
+	}()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		// TODO Handle the deletion of the rooms and close of connections
+		// notify the clients of the server shutting down
+		l.Close()
+		cancel()
+		os.Exit(1)
 	}()
 
 	for {
