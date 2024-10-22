@@ -55,6 +55,8 @@ func (s *Server) Run() {
 		rName, err := s.createJoinRoom(c, buf, rMap)
 		if err != nil {
 			log.Printf("Error creating/joining room, closing connection from %s", c.RemoteAddr())
+			log.Println(err)
+			c.Close()
 			continue
 		}
 		go s.handleConnection(ctx, c, buf, b, rMap, rName)
@@ -75,30 +77,31 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 
 	var oStatus []byte // Used to inform the client of the creation/join of a room
 
-	// TODO Rework the logic (maybe remove GetCreate from proto)
+	roomName := roomMsg.GetName()
+
 	if roomMsg.GetCreate() == true {
 		log.Printf("Creating new room: %s", roomMsg.GetName())
-		room := *newRoom(roomMsg.GetName())
+		room := *newRoom(roomName)
 		room.Users = append(room.Users, conn) // Add user to room
-		rMap[roomMsg.GetName()] = room
+		rMap[roomName] = room
 		oStatus, err = common.MarshalStatusMsg(1)
 		if err != nil {
 			log.Fatal("unexpected error encoding status message when creating a room")
 		}
 		conn.Write(oStatus)
 	} else {
-		if r, ok := rMap[roomMsg.GetName()]; !ok {
+		if r, ok := rMap[roomName]; !ok {
 			oStatus, err = common.MarshalStatusMsg(2)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when creating a room with the same name")
 			}
 			conn.Write(oStatus)
-			errString := fmt.Sprintf("No room named {%s} exists.", roomMsg.Name)
+			errString := fmt.Sprintf("No room named %s exists.", roomMsg.Name)
 			return "", errors.New(errString)
 		} else {
-			log.Printf("Joining %s to room %s", roomMsg.GetUser().GetId(), roomMsg.GetName())
+			log.Printf("Joining %s to room %s", roomMsg.GetUser().GetId(), roomName)
 			r.Users = append(r.Users, conn)
-			rMap[roomMsg.Name] = r // Update Room
+			rMap[roomName] = r // Update Room
 			oStatus, err = common.MarshalStatusMsg(1)
 			if err != nil {
 				log.Fatal("unexpected error encoding status message when joining an existing room")
@@ -106,7 +109,7 @@ func (s *Server) createJoinRoom(conn net.Conn, buf []byte, rMap map[string]Room)
 			conn.Write(oStatus)
 		}
 	}
-	return roomMsg.Name, nil
+	return roomName, nil
 }
 
 func (s *Server) handleConnection(ctx context.Context, conn net.Conn, buf []byte, bCh chan []byte, rMap map[string]Room, rName string) {
