@@ -7,6 +7,7 @@ import (
 	"flag"
 	"io"
 	"log"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -57,9 +58,11 @@ func main() {
 		log.Printf("No username provided, using uuid %s", user.GetId())
 	}
 
-	ipPort := strings.Split(cIp, ":")
-	ip := ipPort[0]
-	port := ipPort[1]
+	ip, port, err := net.SplitHostPort(cIp)
+	if err != nil {
+		client.Disconnect()
+		log.Fatal(err)
+	}
 
 	roomMsg := client.CreateRoomMsg(room, user, roomCreate)
 
@@ -71,7 +74,7 @@ func main() {
 
 	// Confirm that the room was created or exists and the user was added
 	s := services.CheckStatus(client)
-	if s == false {
+	if !s {
 		log.Fatal("Server could not create/join room")
 		client.Disconnect()
 	}
