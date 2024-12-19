@@ -37,6 +37,10 @@ func CheckNewMsg(ctx context.Context, c Client, wg *sync.WaitGroup) {
 			}
 			m := &chat.ClientMessage{}
 			err = proto.Unmarshal(data, m)
+			if err != nil {
+				log.Println("Error parsing client msg...")
+				return
+			}
 
 			u := m.GetUser().GetUsername()
 			if u == "" {
